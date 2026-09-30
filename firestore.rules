@@ -1,0 +1,66 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function admin() {
+      return signedIn() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+    }
+    function own(uid) { return signedIn() && request.auth.uid == uid; }
+
+    match /users/{uid} {
+      allow create: if own(uid) && request.resource.data.role == "customer";
+      allow read: if own(uid) || admin();
+      allow update: if own(uid) && request.resource.data.role == resource.data.role
+                    || admin();
+      allow delete: if admin();
+    }
+
+
+    match /storeSettings/{id} {
+      allow read: if admin();
+      allow create, update, delete: if admin();
+    }
+    match /products/{id} {
+      allow read: if resource.data.active == true || admin();
+      allow create, update, delete: if admin();
+    }
+    match /categories/{id} {
+      allow read: if true;
+      allow create, update, delete: if admin();
+    }
+    match /designers/{id} {
+      allow read: if resource.data.active == true || admin();
+      allow create, update, delete: if admin();
+    }
+
+    match /orders/{id} {
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.paymentStatus == "unpaid"
+                    && request.resource.data.orderStatus == "pending";
+      allow read: if admin() || (signedIn() && resource.data.userId == request.auth.uid);
+      allow update: if admin();
+      allow delete: if admin();
+    }
+
+    match /cmtEnquiries/{id} {
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow read: if admin() || (signedIn() && resource.data.userId == request.auth.uid);
+      allow update, delete: if admin();
+    }
+    match /rentalEnquiries/{id} {
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow read: if admin() || (signedIn() && resource.data.userId == request.auth.uid);
+      allow update, delete: if admin();
+    }
+    match /consultationRequests/{id} {
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow read: if admin() || (signedIn() && resource.data.userId == request.auth.uid);
+      allow update, delete: if admin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
